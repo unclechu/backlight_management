@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
+# Version: 0.1
+
+import sys
+from PyQt4 import QtGui, QtCore
+import os
+
+displaysListPath = '/sys/class/backlight/'
+
+def getDisplaysList():
+    dirList = os.listdir(displaysListPath)
+    newList = []
+    for name in dirList:
+        if os.path.isdir(os.path.join(displaysListPath, name)):
+            newList.append(name)
+    return newList
+
+def getDisplayBrightness(displayName):
+    filename = os.path.join(displaysListPath, displayName, 'brightness')
+    return int(open(filename).read())
+
+def getDisplayMaximum(displayName):
+    filename = os.path.join(displaysListPath, displayName, 'max_brightness')
+    return int(open(filename).read())
+
+def setDisplayBrightness(displayName, value):
+    filename = os.path.join(displaysListPath, displayName, 'brightness')
+    open(filename, 'w').write(str(value))
+    
+class Slider(QtGui.QWidget):
+    def __init__(self, displayName, curBrightness=None, maxBrightness=None):
+        super(Slider, self).__init__()
+        self.displayName = displayName
+
+        if curBrightness == None:
+            self.curBrightness = getDisplayBrightness(self.displayName)
+        else:
+            self.curBrightness = curBrightness
+
+        if maxBrightness == None:
+            self.maxBrightness = getDisplayMaximum(self.displayName)
+        else:
+            self.maxBrightness = maxBrightness
+
+        self.initUI()
+
+    def updateValue(self, value):
+        setDisplayBrightness(self.displayName, value)
+
+    def initUI(self):
+        vbox = QtGui.QVBoxLayout()
+
+        vbox.addWidget(QtGui.QLabel(self.displayName))
+
+        self.slider = QtGui.QSlider()
+        self.slider.setOrientation(QtCore.Qt.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(self.maxBrightness)
+        self.slider.setValue(self.curBrightness)
+        QtCore.QObject.connect(
+            self.slider,
+            QtCore.SIGNAL('valueChanged(int)'),
+            self.updateValue )
+
+        vbox.addWidget(self.slider)
+
+        self.setLayout(vbox)
+
+
+class MainWindow(QtGui.QWidget):
+    def __init__(self):
+        super(MainWindow, self).__init__()
+        self.initUI()
+
+    def initUI(self):
+
+        self.resize(640, 0)
+        self.setWindowTitle('Backlight management')
+
+        vbox = QtGui.QVBoxLayout()
+
+        displaysList = getDisplaysList()
+        
+        for name in displaysList:
+            vbox.addWidget(Slider(name))
+
+        self.setLayout(vbox)
+        self.center()
+        self.show()
+
+    def center(self):
+        frameGm = self.frameGeometry()
+        centerPoint = QtGui.QDesktopWidget().availableGeometry().center()
+        frameGm.moveCenter(centerPoint)
+        self.move(frameGm.topLeft())
+
+def main():
+    app = QtGui.QApplication(sys.argv)
+    mainWindow = MainWindow()
+    sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()
